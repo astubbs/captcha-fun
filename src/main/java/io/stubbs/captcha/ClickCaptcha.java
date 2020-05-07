@@ -1,116 +1,37 @@
-package io.stubbs;
+package io.stubbs.captcha;
 
-import com.twocaptcha.api.ProxyType;
-import com.twocaptcha.api.TwoCaptchaService;
-import com.twocaptcha.api.TwoCaptchaService.ResponseData.Point;
-import io.github.bonigarcia.wdm.WebDriverManager;
+import io.stubbs.selenium.SeleniumUtils;
 import lombok.Data;
+import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.NotImplementedException;
-import org.assertj.core.util.Lists;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-import org.openqa.selenium.*;
+import org.openqa.selenium.By;
 import org.openqa.selenium.Dimension;
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
-import org.openqa.selenium.chrome.ChromeOptions;
 import org.openqa.selenium.interactions.Actions;
+import twocaptcha.api.ProxyType;
+import twocaptcha.api.TwoCaptchaService;
 
-import javax.imageio.ImageIO;
-import java.awt.*;
-import java.awt.image.BufferedImage;
-import java.io.*;
+import java.io.IOException;
 import java.time.Duration;
-import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
 
-import static io.stubbs.LoginTest.CaptchaType.*;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.openqa.selenium.OutputType.FILE;
+import static io.stubbs.captcha.ClickCaptcha.CaptchaType.*;
 
 @Slf4j
-public class LoginTest {
+@RequiredArgsConstructor
+public class ClickCaptcha {
+
     Duration MAX_SPEED = Duration.ofSeconds(1);
     public static final String G_RECAPTCHA_RESPONSE_ID = "g-recaptcha-response";
-    private ChromeDriver driver;
-//    private Map<String, Object> vars;
-//    JavascriptExecutor js;
-
-    @Before
-    public void setUp() {
-//        driver = new FirefoxDriver();
-        WebDriverManager.chromedriver().setup();
-        ChromeOptions chromeOptions = new ChromeOptions();
-//        chromeOptions.setHeadless(true);
-
-        driver = new ChromeDriver(chromeOptions);
-
-//        js = (JavascriptExecutor) driver;
-//        vars = new HashMap<String, Object>();
-    }
-
-    @After
-    public void tearDown() {
-        driver.quit();
-    }
-
-    @Test
-    public void login() {
-        driver.get("https://accounts.ocado.com/auth-service/sso/login");
-
-        submitCreds();
-
-        // TODO save session / cookie data to avoid having to log in again before needed
-        captchaMaybe();
-
-        log.info("Dumping cookies:");
-        for (Cookie cookie : driver.manage().getCookies()) {
-            log.info("Cookie: {}", cookie);
-        }
-
-        log.info("Log in complete...");
-
-        checkForQueueRedirect();
-
-        checkSchedules();
-    }
-
-    private void checkForQueueRedirect() {
-//        driver.findElement(By.linkText("log in.")).click();
-        driver.switchTo().defaultContent();
-        driver.findElement(By.cssSelector("html")).click();
-    }
-
-    private void checkSchedules() {
-        //https://www.ocado.com/webshop/getAddressesForDelivery.do
-    }
-
-    private void submitCreds() {
-        String currentUrl = driver.getCurrentUrl();
-        if (currentUrl.contains("https://q.ocado.com/")) {
-            // redirected into queue
-            waitForQueue();
-        }
-        String title = driver.getTitle();
-        String pageSource = driver.getPageSource();
-//        driver.findElement(By.cssSelector(".login")).click();
-//        driver.findElement(By.id("login-input")).click();
-        WebElement username = driver.findElement(By.id("login-input"));
-        username.sendKeys("antony.stubbs@gmail.com");
-        driver.findElement(By.name("password")).sendKeys("ADZZ/rct2CK6DFYrjCyh");
-        driver.findElement(By.id("login-submit-button")).click();
-//        username.submit();
-    }
-
-    private void waitForQueue() {
-        throw new NotImplementedException("");
-    }
+    final private ChromeDriver driver;
+    final private SeleniumUtils sutils;
 
     @SneakyThrows
-    private void captchaMaybe() {
+    public void captchaMaybe() {
         // loop
         while (true) {
             // find
@@ -125,7 +46,7 @@ public class LoginTest {
                 // have more tiles appeared? or has the captcha changed?
                 CapchaData data = getData();
                 boolean mock = false;
-                Optional<List<Point>> coordinates = mock ? Optional.of(Lists.emptyList()) : solveCapcha(data);
+                Optional<List<TwoCaptchaService.ResponseData.Point>> coordinates = mock ? Optional.of(List.of()) : solveCapcha(data);
                 // String coordinates = mock ? "" : solveCapcha(data);
 
                 if (coordinates.isEmpty()) {
@@ -189,7 +110,7 @@ public class LoginTest {
     }
 
     @SneakyThrows
-    private void submit(List<Point> responseToken) {
+    private void submit(List<TwoCaptchaService.ResponseData.Point> responseToken) {
 //        translateCoords(responseToken);
 //        Optional<WebElement> recaptchaResponseOpt = driver.findElements(By.className("rc-imageselect-challenge")).stream().findFirst();
 //        WebElement webElement = recaptchaResponseOpt.get();
@@ -243,7 +164,7 @@ public class LoginTest {
 
 //        log.info("Screenshot to file...");
 //        driver.getScreenshotAs(FILE);
-        String encodedImageData = shotElement(iframe);
+        String encodedImageData = sutils.shotElement(iframe);
 
 
 //        List<WebElement> elements1 = iframe.findElements(By.className("rc-image-tile-33"));
@@ -323,71 +244,6 @@ public class LoginTest {
         return driver.switchTo().defaultContent().findElement(By.xpath("/html/body/div[2]/div[2]/iframe"));
     }
 
-    @SneakyThrows
-    private String shotElement(WebElement ele) {
-        log.info("Capturing rendered captcha image...");
-        // Get entire page screenshot
-        // TODO screenshot to memory buffer instead of disk
-        log.info("Screenshot whole page...");
-        File screenshot = driver.getScreenshotAs(FILE);
-        // String screenshotAs = driver.getScreenshotAs(BASE64);
-        log.info("Read screenshot off disk...");
-        BufferedImage fullImg = ImageIO.read(screenshot);
-
-        int scale = 2;
-
-        // Get the location of element on the page
-        org.openqa.selenium.Point loc = ele.getLocation();
-        org.openqa.selenium.Point point = new org.openqa.selenium.Point(loc.x * scale, loc.y * scale);
-
-        // Get width and height of the element
-        int eleWidth = ele.getSize().getWidth() * scale;
-        int eleHeight = ele.getSize().getHeight() * scale;
-
-        // Crop the entire page screenshot to get only element screenshot
-        BufferedImage eleScreenshot = fullImg.getSubimage(point.getX(), point.getY(),
-                eleWidth, eleHeight);
-
-        int scaledWidth = eleScreenshot.getWidth() / scale;
-        int scaledHeight = eleScreenshot.getHeight() / scale;
-        BufferedImage scaledImage = new BufferedImage(
-                scaledWidth,
-                scaledHeight,
-                BufferedImage.TYPE_INT_RGB);
-        log.info("Scaling image...");
-        scaledImage.createGraphics().drawImage(eleScreenshot, 0, 0, scaledWidth, scaledHeight, Color.WHITE, null);
-
-
-        // Copy the element screenshot to disk
-        // File tmpFile = File.createTempFile("screenshot", ".png");
-        // tmpFile.deleteOnExit();
-        // File screenshotLocation = new File("C:\\images\\GoogleLogo_screenshot.png");
-        File screenshotLocationjpg = File.createTempFile("screenshot-part-jpg", ".jpg");
-        screenshotLocationjpg.deleteOnExit();
-
-        // File screenshotLocation = File.createTempFile("screenshot-part", ".png");
-
-        log.info("Saving scaled image to disk...");
-        boolean jpg1 = ImageIO.write(scaledImage, "jpg", screenshotLocationjpg);
-        assertThat(jpg1).isTrue();
-
-
-        // boolean jpg = ImageIO.write(eleScreenshot, "png", screenshotLocation);
-        // assertThat(jpg).isTrue();
-
-        ByteArrayOutputStream scaledOutputBuffer = new ByteArrayOutputStream();
-        // BufferedOutputStream output = new BufferedOutputStream(scaledOutputBuffer);
-        log.info("Save ...");
-        boolean jpg = ImageIO.write(scaledImage, "jpg", scaledOutputBuffer);
-        assertThat(jpg).isTrue();
-
-        scaledOutputBuffer.close();
-
-        log.info("Base64 encoding...");
-        String base64EncodedImage = Base64.getEncoder().encodeToString(scaledOutputBuffer.toByteArray());
-        // FileUtils.copyFile(screenshot, screenshotLocation);
-        return base64EncodedImage;
-    }
 
     @Data
     public
@@ -397,7 +253,7 @@ public class LoginTest {
     }
 
     @SneakyThrows
-    private Optional<List<Point>> solveCapcha(CapchaData data) {
+    private Optional<List<TwoCaptchaService.ResponseData.Point>> solveCapcha(CapchaData data) {
         String ocadoDataSiteKey = "6LcRDbsUAAAAAP8Kg4CtjPzIY40yzlgwzXFV4JzV"; // data-sitekey
         String apiKey = "2c555debdc6d33fa0db1aa73aeaa45bd";
         String googleKey = ocadoDataSiteKey; // "6Le-wvkSAAAAAPBMRTvw0Q4Muexq9bi0DJwx_mJ-";
@@ -423,7 +279,7 @@ public class LoginTest {
          */
 
         try {
-            Optional<List<Point>> responseToken = service.solveCaptcha(data);
+            Optional<List<TwoCaptchaService.ResponseData.Point>> responseToken = service.solveCaptcha(data);
             log.info("The response token is: " + responseToken);
             return responseToken;
         } catch (InterruptedException e) {

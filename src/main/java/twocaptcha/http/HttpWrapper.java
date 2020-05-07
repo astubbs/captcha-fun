@@ -1,4 +1,4 @@
-package com.twocaptcha.http;
+package twocaptcha.http;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.BufferedReader;

@@ -2,6 +2,7 @@ package com.twocaptcha.api;
 
 
 import org.junit.Test;
+import twocaptcha.api.TwoCaptchaService;
 
 import java.util.List;
 
@@ -31,10 +32,10 @@ public class APITest {
 
         TwoCaptchaService s = new TwoCaptchaService(null, null, null);
 
-        List<TwoCaptchaService.ResponseData.Point> points = s.parseResponse(input);
+        List<TwoCaptchaService.ResponseData.Point> points = s.parseResponse(input).get();
 
         assertThat(points).hasSize(2);
-        assertThat(points.get(1).x).isEqualTo(10);
+        assertThat(points.get(1).getX()).isEqualTo(10);
     }
 
 
