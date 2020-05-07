@@ -18,11 +18,7 @@ public class Login {
 
     private ClickCaptcha cc;
 
-    Login() {
-        WebDriverManager.chromedriver().setup();
-        ChromeOptions chromeOptions = new ChromeOptions();
-
-        driver = new ChromeDriver(chromeOptions);
+    Login(ChromeDriver driver) {
         SeleniumUtils sutils = new SeleniumUtils(driver);
         cc = new ClickCaptcha(driver, sutils);
     }

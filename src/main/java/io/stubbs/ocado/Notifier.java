@@ -9,6 +9,11 @@ import java.util.List;
 public class Notifier {
 
     void notifyOfSchedule(List<WebElement> x) {
+        log.info("Found the following schedules...");
         log.info(x.toString());
+    }
+
+    public void notifyOfNoScheduleAvailable() {
+        log.info("No schedules sorry :(");
     }
 }
