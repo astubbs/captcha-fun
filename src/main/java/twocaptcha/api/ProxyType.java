@@ -1,4 +1,4 @@
-package com.twocaptcha.api;
+package twocaptcha.api;
 
 public enum ProxyType {
 	HTTP, HTTPS, SOCKS4, SOCKS5;

@@ -1,13 +1,7 @@
-package com.twocaptcha.api;
-
-import java.io.IOException;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+package twocaptcha.api;
 
 import com.google.gson.Gson;
-import com.twocaptcha.http.HttpWrapper;
-import io.stubbs.LoginTest;
+import io.stubbs.captcha.ClickCaptcha.CapchaData;
 import kong.unirest.HttpResponse;
 import kong.unirest.JsonNode;
 import kong.unirest.MultipartBody;
@@ -16,8 +10,12 @@ import kong.unirest.json.JSONObject;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
+import twocaptcha.http.HttpWrapper;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import java.io.IOException;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 @Slf4j
 public class TwoCaptchaService {
@@ -149,7 +147,7 @@ public class TwoCaptchaService {
      * @throws InterruptedException, when thread.sleep is interrupted
      * @throws IOException,          when there is any server issue and the request cannot be completed
      */
-    public Optional<List<ResponseData.Point>> solveCaptcha(LoginTest.CapchaData data) throws InterruptedException, IOException {
+    public Optional<List<ResponseData.Point>> solveCaptcha(CapchaData data) throws InterruptedException, IOException {
         log.info("Sending recaptcha challenge to 2captcha.com");
 
         String response = data == null ? getMethod() : postMethod(data);
@@ -204,7 +202,7 @@ public class TwoCaptchaService {
         }
     }
 
-    private String postMethod(LoginTest.CapchaData data) {
+    private String postMethod(CapchaData data) {
         log.info("instructions; {}", data.getInstructions());
         MultipartBody request = Unirest.post(TWOCAPTCHA_IN_URL)
                 .field("googlekey", googleKey)
@@ -227,7 +225,8 @@ public class TwoCaptchaService {
         JSONObject body = response.getBody().getObject();
         String captchaId = body.getString("request");
         String apiStatus = body.getString("status");
-        assertThat(apiStatus).isEqualTo("1");
+        if (!apiStatus.equals("1"))
+            throw new RuntimeException("Api error status: " + status + " request: " + request);
         log.info(body.toString());
         return captchaId;
     }
