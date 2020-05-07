@@ -12,10 +12,11 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class Schedules {
 
+    public static String URL = "https://www.ocado.com/webshop/getAddressesForDelivery.do";
     final private ChromeDriver driver;
     final private Notifier notify;
 
-    private void checkSchedules() {
+    public void checkSchedules() {
         goToPage();
         Optional<List<WebElement>> schedules = getSchedules();
         process(schedules);
@@ -25,7 +26,7 @@ public class Schedules {
         schedules.ifPresentOrElse(x -> {
             notify.notifyOfSchedule(x);
         }, () -> {
-            log.info("No schedules sorry :(");
+            notify.notifyOfNoScheduleAvailable();
         });
     }
 
@@ -41,7 +42,10 @@ public class Schedules {
     }
 
     private void goToPage() {
-        driver.get("https://www.ocado.com/webshop/getAddressesForDelivery.do");
+        driver.get(URL);
+        String title = driver.getTitle();
+        if (!title.equalsIgnoreCase("Ocado: Delivery: Choose an available delivery slot"))
+            throw new RuntimeException("couldn't load page. Title=" + title);
     }
 
 }
