@@ -76,7 +76,9 @@ public class ClickCaptcha {
     @SneakyThrows
     private void waitForTilesToFadeIn() {
         // TODO make this more dynamic by checking for CSS properties - perhaps check all cells in table are fully visible via opaqueness
-        Thread.sleep(5000);
+        Duration pauseTime = Duration.ofSeconds(5);
+        log.info("Pausing for {} for new tiles to fade in...", pauseTime);
+        Thread.sleep(pauseTime.toMillis());
     }
 
     enum CaptchaType {
@@ -254,9 +256,8 @@ public class ClickCaptcha {
 
     @SneakyThrows
     private Optional<List<TwoCaptchaService.ResponseData.Point>> solveCapcha(CapchaData data) {
-        String ocadoDataSiteKey = "6LcRDbsUAAAAAP8Kg4CtjPzIY40yzlgwzXFV4JzV"; // data-sitekey
-        String apiKey = "2c555debdc6d33fa0db1aa73aeaa45bd";
-        String googleKey = ocadoDataSiteKey; // "6Le-wvkSAAAAAPBMRTvw0Q4Muexq9bi0DJwx_mJ-";
+
+        String googleKey = Config.ocadoDataSiteKey; // "6Le-wvkSAAAAAPBMRTvw0Q4Muexq9bi0DJwx_mJ-";
         String pageUrl = "https://accounts.ocado.com/auth-service/sso/login";
 //        String proxyIp = "183.38.231.131";
 //        String proxyPort = "8888";
@@ -271,7 +272,7 @@ public class ClickCaptcha {
         /**
          * With proxy and user authentication
          */
-        TwoCaptchaService service = new TwoCaptchaService(apiKey, googleKey, pageUrl, proxyIp, proxyPort, proxyUser, proxyPw, ProxyType.HTTP);
+        TwoCaptchaService service = new TwoCaptchaService(Config.apiKey, googleKey, pageUrl, proxyIp, proxyPort, proxyUser, proxyPw, ProxyType.HTTP);
 
         /**
          * Without proxy and user authentication
