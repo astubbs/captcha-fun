@@ -3,6 +3,7 @@ package com.twocaptcha.api;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import com.google.gson.Gson;
 import com.twocaptcha.http.HttpWrapper;
@@ -21,6 +22,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Slf4j
 public class TwoCaptchaService {
     public static final String TWOCAPTCHA_IN_URL = "http://2captcha.com/in.php?";
+    public static final double API_ERROR_CODE = 0.0;
 
     /**
      * This class is used to establish a connection to 2captcha.com
@@ -147,7 +149,7 @@ public class TwoCaptchaService {
      * @throws InterruptedException, when thread.sleep is interrupted
      * @throws IOException,          when there is any server issue and the request cannot be completed
      */
-    public List<ResponseData.Point> solveCaptcha(LoginTest.CapchaData data) throws InterruptedException, IOException {
+    public Optional<List<ResponseData.Point>> solveCaptcha(LoginTest.CapchaData data) throws InterruptedException, IOException {
         log.info("Sending recaptcha challenge to 2captcha.com");
 
         String response = data == null ? getMethod() : postMethod(data);
@@ -173,19 +175,20 @@ public class TwoCaptchaService {
 
         log.info("It took " + timeCounter + " seconds to solve the captcha");
         String responseBody = hw.getHtml();
-        List<ResponseData.Point> coordinates = parseResponse(responseBody);
+        Optional<List<ResponseData.Point>> coordinates = parseResponse(responseBody);
         return coordinates;
 //        return responseBody;
     }
 
-    public List<ResponseData.Point> parseResponse(String responseBody) {
+    public Optional<List<ResponseData.Point>> parseResponse(String responseBody) {
         log.info(responseBody);
         Map mapResponse = new Gson().fromJson(responseBody, Map.class); // inconsistent return types, so just check status first
-        assertThat(mapResponse.get("status")).isEqualTo(1.0);
+        if (mapResponse.get("status").equals(API_ERROR_CODE))
+            return Optional.empty();
         ResponseData responseData = new Gson().fromJson(responseBody, ResponseData.class);
 //        String gRecaptchaResponse = responseBody.replaceAll("OK\\|", "").replaceAll("\\n", "");
         List<ResponseData.Point> request = responseData.getRequest();
-        return request;
+        return Optional.of(request);
     }
 
     @Data
