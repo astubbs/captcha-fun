@@ -1,10 +1,12 @@
 package io.stubbs.captcha;
 
+import com.google.common.base.Stopwatch;
 import io.stubbs.selenium.SeleniumUtils;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import org.jsoup.Jsoup;
 import org.openqa.selenium.By;
 import org.openqa.selenium.Dimension;
 import org.openqa.selenium.WebDriver;
@@ -20,18 +22,21 @@ import java.util.List;
 import java.util.Optional;
 
 import static io.stubbs.captcha.ClickCaptcha.CaptchaType.*;
+import static io.stubbs.captcha.FunctionUtils.randomPause;
+import static java.time.Duration.ofSeconds;
 
 @Slf4j
 @RequiredArgsConstructor
 public class ClickCaptcha {
 
-    Duration MAX_SPEED = Duration.ofSeconds(1);
+    Duration MAX_SPEED = ofSeconds(1);
     public static final String G_RECAPTCHA_RESPONSE_ID = "g-recaptcha-response";
     final private ChromeDriver driver;
     final private SeleniumUtils sutils;
 
     @SneakyThrows
     public void captchaMaybe() {
+        Stopwatch started = Stopwatch.createStarted();
         // loop
         while (true) {
             // find
@@ -44,7 +49,7 @@ public class ClickCaptcha {
             // get data
             while (true) {
                 // have more tiles appeared? or has the captcha changed?
-                CapchaData data = getData();
+                CapchaData data = getCaptchaData(captchaType);
                 boolean mock = false;
                 Optional<List<TwoCaptchaService.ResponseData.Point>> coordinates = mock ? Optional.of(List.of()) : solveCapcha(data);
                 // String coordinates = mock ? "" : solveCapcha(data);
@@ -65,18 +70,15 @@ public class ClickCaptcha {
                 }
             }
             clickVerify();
-
-            // slow down
-            Thread.sleep(500);
         }
 
-        log.info("Captcha no longer detected...");
+        log.info("Captcha no longer detected... Took: {}", started.stop().elapsed());
     }
 
     @SneakyThrows
     private void waitForTilesToFadeIn() {
         // TODO make this more dynamic by checking for CSS properties - perhaps check all cells in table are fully visible via opaqueness
-        Duration pauseTime = Duration.ofSeconds(5);
+        Duration pauseTime = ofSeconds(8);
         log.info("Pausing for {} for new tiles to fade in...", pauseTime);
         Thread.sleep(pauseTime.toMillis());
     }
@@ -86,10 +88,13 @@ public class ClickCaptcha {
     }
 
     private CaptchaType findIfCaptchaIsPresentAndType() {
-        // Optional<WebElement> recaptchaResponseOpt = driver.findElements(By.id("recaptcha-token")).stream().findFirst();
+        String currentUrl = driver.getCurrentUrl();
+        if (!currentUrl.contains("accounts.ocado.com/auth-service/sso/login"))
+            return NONE;
+
         Optional<WebElement> first = driver.switchTo().defaultContent().findElements(By.xpath("/html/body/div[2]/div[2]/iframe")).stream().findFirst();
-        boolean noCapcha = first.isEmpty();
-        if (noCapcha) {
+        boolean noCaptcha = first.isEmpty();
+        if (noCaptcha) {
             log.info("Captcha not present");
             return NONE;
         } else {
@@ -106,9 +111,12 @@ public class ClickCaptcha {
     }
 
     private void clickVerify() {
+        randomPause("Clicking verify after pause...");
         WebDriver webDriver = switchToCaptchaIFrame();
         Optional<WebElement> first = webDriver.findElements(By.className("rc-button-default")).stream().findFirst();
         first.get().click();
+
+        waitForCaptchaImageToSlideIn();
     }
 
     @SneakyThrows
@@ -139,11 +147,7 @@ public class ClickCaptcha {
             log.info("Slowly clicking at {},{}", adjustedX, adjustedY);
             actions.moveToElement(webElement, adjustedX, adjustedY).click().build().perform();
 
-            try {
-                Thread.sleep(MAX_SPEED.toMillis());
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
+            randomPause("Pausing...");
         });
 //        actions.build().perform();
 
@@ -160,66 +164,27 @@ public class ClickCaptcha {
 //    }
 
     @SneakyThrows
-    private CapchaData getData() {
-        // find url
+    private CapchaData getCaptchaData(CaptchaType captchaType) {
         WebElement iframe = getCaptchaIFrame();
 
-//        log.info("Screenshot to file...");
-//        driver.getScreenshotAs(FILE);
         String encodedImageData = sutils.shotElement(iframe);
-
-
-//        List<WebElement> elements1 = iframe.findElements(By.className("rc-image-tile-33"));
-//        List<WebElement> elements1 = frame.findElements(By.className("rc-image-tile-33"));
-//        List<WebElement> elements = driver.findElements(By.className("rc-image-tile-33"));
-//        String stringStream = driver.findElements(By.tagName("img")).stream()
-//                .filter(x -> x.getAttribute("src").contains("https://www.google.com:443/recaptcha/api2/payload?"))
-//                .findFirst()
-//                .stream()
-//                .map(x -> x.getAttribute("src"))
-//                .findFirst()
-//                .get();
-
-
-//        File screenshotAs = driver.getScreenshotAs(OutputType.FILE);
-//        String screenshotAs1 = driver.getScreenshotAs(OutputType.BASE64);
-
-//        Optional<WebElement> recaptchaResponseOpt = driver.findElements(By.className("rc-imageselect-challenge")).stream().findFirst();
-////        shotElement(recaptchaResponseOpt.get());
-//        WebElement webElement = recaptchaResponseOpt.get();
-//        File screenshotAs = webElement.getScreenshotAs(FILE);
-
-
-        // download
-//        log.info("Downloading captcha image: {}", stringStream);
-//        URL url = new URL(stringStream);
-//        Image image = ImageIO.read(url);
-//
-//
-//        InputStream in = new BufferedInputStream(url.openStream());
-//        ByteArrayOutputStream out = new ByteArrayOutputStream();
-//
-//        in.transferTo(out);
-//
-//        out.close();
-//        in.close();
-//
-//        byte[] bytes = out.toByteArray();
-//
-//        // encode
-//        String encoded = Base64.getEncoder().encodeToString(bytes);
-
-//        List<WebElement> collect = webElementStream.collect(Collectors.toList());
-//        Optional<WebElement> first = webElementStream.findFirst();
-
-//        byte[] encodedBytes = Base64.getEncoder().encode("Test".getBytes());
-//        System.out.println("encodedBytes " + new String(encodedBytes));
-//        byte[] decodedBytes = Base64.getDecoder().decode(encodedBytes);
-//        System.out.println("decodedBytes " + new String(decodedBytes));
 
         String strippedInstructions = findCaptchaInstructions();
 
+        if (captchaType == UNTIL_NONE_LEFT)
+            strippedInstructions = strippedInstructions + ". There may be none, in which case solve it with nothing clicked, don't click unsolvable.";
+
         return new CapchaData(encodedImageData, strippedInstructions);
+    }
+
+    @SneakyThrows
+    private void waitForCaptchaImageToSlideIn() {
+        CaptchaType captchaType = findIfCaptchaIsPresentAndType();
+        if (captchaType != NONE) {
+            log.info("Capture still present, image might be animating in from the side, after a previous round");
+            // TODO make this smarter by testing for animation?
+            Thread.sleep(2000);
+        }
     }
 
     private String findCaptchaInstructions() {
@@ -231,7 +196,7 @@ public class ClickCaptcha {
             element = frame.findElements(By.className("rc-imageselect-desc"));
         }
         String text = element.stream().findFirst().get().getText();
-        //String strippedInstructions = text.strippedInstructions().replaceFirst("\n", " ").replaceFirst("\n.*", "");
+        text = Jsoup.parse(text).text();
         return text.strip().replaceFirst("\n", " ").replaceFirst("\n", ". ");
     }
 
