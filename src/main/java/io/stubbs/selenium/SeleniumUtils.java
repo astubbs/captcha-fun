@@ -13,6 +13,7 @@ import org.openqa.selenium.chrome.ChromeOptions;
 import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.image.BufferedImage;
+import java.awt.image.RasterFormatException;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -73,8 +74,14 @@ public class SeleniumUtils {
         int eleHeight = ele.getSize().getHeight() * scale;
 
         // Crop the entire page screenshot to get only element screenshot
-        BufferedImage eleScreenshot = fullImg.getSubimage(point.getX(), point.getY(),
-                eleWidth, eleHeight);
+        BufferedImage eleScreenshot;
+        try {
+            eleScreenshot = fullImg.getSubimage(point.getX(), point.getY(),
+                    eleWidth, eleHeight);
+        } catch (RasterFormatException e) {
+            log.error("Some bizarre image manipulation mistake...?");
+            throw e;
+        }
 
         int scaledWidth = eleScreenshot.getWidth() / scale;
         int scaledHeight = eleScreenshot.getHeight() / scale;
