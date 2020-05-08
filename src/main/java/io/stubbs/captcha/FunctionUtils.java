@@ -23,8 +23,10 @@ public class FunctionUtils {
 
     static public void logStopwatch(String logMessage, Logger shadowLogger, Stopwatch w) {
         Logger logger = (shadowLogger == null) ? FunctionUtils.log : shadowLogger;
-        String template = (logMessage == null) ? "took: {}" : "{} took: {}";
-        logger.info(template, logMessage, w.toString());
+        if (logMessage == null)
+            logger.info("Took: {}", w);
+        else
+            logger.info("{} took: {}", logMessage, w);
     }
 
     @SneakyThrows
@@ -41,16 +43,22 @@ public class FunctionUtils {
         Thread.sleep(sleep);
     }
 
+    @SneakyThrows
     public static <R> R time(String logMessage, Supplier<R> f) {
         return time(logMessage, null, f);
     }
 
+    @SneakyThrows
     public static <R> R time(Supplier<R> f) {
         return time(null, f);
     }
 
+    @SneakyThrows
     public static <R> R time(String logMessage, Logger log, Supplier<R> f) {
         Logger logger = (log == null) ? FunctionUtils.log : log;
+        logMessage = (logMessage == null) ?
+                "Action..." :
+                logMessage;
         logger.info(logMessage);
         Stopwatch stopwatch = Stopwatch.createStarted();
         R apply = f.get();

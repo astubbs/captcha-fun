@@ -1,5 +1,6 @@
 package twocaptcha.api;
 
+import com.google.common.base.Stopwatch;
 import com.google.gson.Gson;
 import io.stubbs.captcha.ClickCaptcha.CapchaData;
 import kong.unirest.HttpResponse;
@@ -148,8 +149,9 @@ public class TwoCaptchaService {
      * @throws IOException,          when there is any server issue and the request cannot be completed
      */
     public Optional<List<ResponseData.Point>> solveCaptcha(CapchaData data) throws InterruptedException, IOException {
-        log.info("Sending recaptcha challenge to 2captcha.com");
+        log.info("Sending recaptcha challenge to 2captcha.com...");
 
+        Stopwatch w = Stopwatch.createStarted();
         String response = data == null ? getMethod() : postMethod(data);
 
         if (response.contains("ERROR_ZERO_BALANCE")) {
@@ -158,6 +160,9 @@ public class TwoCaptchaService {
 
         String captchaId = response.replaceAll("\\D", "");
         int timeCounter = 0;
+
+        int INITIAL_DELAY = 8000;
+        Thread.sleep(INITIAL_DELAY);
 
         do {
             hw.get("http://2captcha.com/res.php?key=" + apiKey
@@ -168,24 +173,24 @@ public class TwoCaptchaService {
             Thread.sleep(1000);
 
             timeCounter++;
-            log.info("Waiting for captcha to be solved: {}s", timeCounter);
+            log.info("Waiting for captcha to be solved: {} try, {}", timeCounter, w);
         } while (hw.getHtml().contains("NOT_READY"));
 
         log.info("It took " + timeCounter + " seconds to solve the captcha");
         String responseBody = hw.getHtml();
         Optional<List<ResponseData.Point>> coordinates = parseResponse(responseBody);
         return coordinates;
-//        return responseBody;
     }
 
     public Optional<List<ResponseData.Point>> parseResponse(String responseBody) {
-        log.info(responseBody);
         Map mapResponse = new Gson().fromJson(responseBody, Map.class); // inconsistent return types, so just check status first
         if (mapResponse.get("status").equals(API_ERROR_CODE))
             return Optional.empty();
         ResponseData responseData = new Gson().fromJson(responseBody, ResponseData.class);
-//        String gRecaptchaResponse = responseBody.replaceAll("OK\\|", "").replaceAll("\\n", "");
         List<ResponseData.Point> request = responseData.getRequest();
+        if (request.isEmpty()) {
+            log.info("Service returned a `success` result of zero coordinates");
+        }
         return Optional.of(request);
     }
 
@@ -203,7 +208,7 @@ public class TwoCaptchaService {
     }
 
     private String postMethod(CapchaData data) {
-        log.info("instructions; {}", data.getInstructions());
+        log.info("Instructions; {}", data.getInstructions());
         MultipartBody request = Unirest.post(TWOCAPTCHA_IN_URL)
                 .field("googlekey", googleKey)
                 .field("key", apiKey)
@@ -212,7 +217,6 @@ public class TwoCaptchaService {
                 .field("body", data.getBase64ImageData())
                 .field("method", "base64")
                 .field("json", "1");
-        log.info(request.toString());
 
         HttpResponse<JsonNode> response = request.asJson();
 
@@ -221,13 +225,11 @@ public class TwoCaptchaService {
         });
         int status = response.getStatus();
         String string = response.getBody().toPrettyString();
-        log.info(string);
         JSONObject body = response.getBody().getObject();
         String captchaId = body.getString("request");
         String apiStatus = body.getString("status");
         if (!apiStatus.equals("1"))
             throw new RuntimeException("Api error status: " + status + " request: " + request);
-        log.info(body.toString());
         return captchaId;
     }
 
