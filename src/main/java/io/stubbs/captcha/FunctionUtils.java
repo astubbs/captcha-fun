@@ -50,6 +50,8 @@ public class FunctionUtils {
     }
 
     public static <R> R time(String logMessage, Logger log, Supplier<R> f) {
+        Logger logger = (log == null) ? FunctionUtils.log : log;
+        logger.info(logMessage);
         Stopwatch stopwatch = Stopwatch.createStarted();
         R apply = f.get();
         logStopwatch(logMessage, log, stopwatch);
