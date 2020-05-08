@@ -6,6 +6,7 @@ import io.stubbs.captcha.FunctionUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import org.imgscalr.Scalr;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
@@ -17,6 +18,7 @@ import java.awt.image.RasterFormatException;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.IOException;
 import java.util.Base64;
 
 import static io.stubbs.captcha.FunctionUtils.logStopwatch;
@@ -50,17 +52,20 @@ public class SeleniumUtils {
     @SneakyThrows
     public String shotElement(WebElement ele) {
         log.info("Capturing rendered captcha image...");
-        // Get entire page screenshot
-        // TODO screenshot to memory buffer instead of disk
-        log.info("Screenshot whole page...");
         //File screenshot = driver.getScreenshotAs(FILE);
         // String screenshotAs = driver.getScreenshotAs(BASE64);
         Stopwatch w = Stopwatch.createStarted();
-        byte[] screenshot = driver.getScreenshotAs(BYTES);
-        logStopwatch(log, w);
-        BufferedImage fullImg = ImageIO.read(new ByteArrayInputStream(screenshot));
-        log.info(w.elapsed().toString());
-//        log.info("Read screenshot off disk...");
+        byte[] screenshot = time("Screenshot whole page...", () -> driver.getScreenshotAs(BYTES));
+
+        BufferedImage fullImg = time("Read PNG screenshot from byte array", () -> {
+            try {
+                return ImageIO.read(new ByteArrayInputStream(screenshot));
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
+
+        // log.info("Read screenshot off disk...");
         // BufferedImage fullImg = ImageIO.read(screenshot);
 
         int scale = 2;
@@ -76,10 +81,11 @@ public class SeleniumUtils {
         // Crop the entire page screenshot to get only element screenshot
         BufferedImage eleScreenshot;
         try {
-            eleScreenshot = fullImg.getSubimage(point.getX(), point.getY(),
-                    eleWidth, eleHeight);
+            eleScreenshot = time("Resize", () -> fullImg.getSubimage(point.getX(), point.getY(),
+                    eleWidth, eleHeight));
         } catch (RasterFormatException e) {
-            log.error("Some bizarre image manipulation mistake...?");
+            log.error("Some bizarre image manipulation mistake...? Saving original to disk for manual inspection.");
+            saveImageToDisk("original-source-capture", fullImg, "png");
             throw e;
         }
 
@@ -90,6 +96,8 @@ public class SeleniumUtils {
                 scaledHeight,
                 BufferedImage.TYPE_INT_RGB);
 
+//        BufferedImage scalrImagetest = time("Sclar test", () -> Scalr.resize(eleScreenshot, scaledWidth));
+
         Graphics2D graphics = time("Scaling image", () -> scaledImage.createGraphics());
 
         time("Drawing", () -> graphics.drawImage(eleScreenshot, 0, 0, scaledWidth, scaledHeight, Color.WHITE, null));
@@ -99,14 +107,14 @@ public class SeleniumUtils {
         // File tmpFile = File.createTempFile("screenshot", ".png");
         // tmpFile.deleteOnExit();
         // File screenshotLocation = new File("C:\\images\\GoogleLogo_screenshot.png");
-        File screenshotLocationjpg = File.createTempFile("screenshot-part-jpg", ".jpg");
+        File screenshotLocationJpg = File.createTempFile("screenshot-part-jpg", ".jpg");
         if (deleteOnExit)
-            screenshotLocationjpg.deleteOnExit();
+            screenshotLocationJpg.deleteOnExit();
 
         // File screenshotLocation = File.createTempFile("screenshot-part", ".png");
 
-        log.info("Saving scaled image to disk...");
-        boolean jpg1 = ImageIO.write(scaledImage, "jpg", screenshotLocationjpg);
+        log.debug("Saving scaled image to disk...");
+        boolean jpg1 = ImageIO.write(scaledImage, "jpg", screenshotLocationJpg);
         if (!jpg1) throw new RuntimeException("Failed to find writer...");
 
         // boolean jpg = ImageIO.write(eleScreenshot, "png", screenshotLocation);
@@ -114,16 +122,28 @@ public class SeleniumUtils {
 
         ByteArrayOutputStream scaledOutputBuffer = new ByteArrayOutputStream();
         // BufferedOutputStream output = new BufferedOutputStream(scaledOutputBuffer);
-        log.info("Save ...");
+        log.debug("Save ...");
         boolean jpg = ImageIO.write(scaledImage, "jpg", scaledOutputBuffer);
         if (!jpg) throw new RuntimeException("Failed to find writer...");
 
         scaledOutputBuffer.close();
 
-        log.info("Base64 encoding...");
+        log.debug("Base64 encoding...");
         String base64EncodedImage = Base64.getEncoder().encodeToString(scaledOutputBuffer.toByteArray());
         // FileUtils.copyFile(screenshot, screenshotLocation);
         return base64EncodedImage;
+    }
+
+    @SneakyThrows
+    private void saveImageToDisk(String name, BufferedImage fullImg, String format) {
+        File fileLoc = File.createTempFile(name, "." + format);
+        if (deleteOnExit)
+            fileLoc.deleteOnExit();
+        log.info("Saving {} to disk...", fullImg);
+        boolean success = ImageIO.write(fullImg, format, fileLoc);
+        if (!success)
+            throw new RuntimeException("Failed to find writer...?");
+
     }
 
 }

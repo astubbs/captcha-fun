@@ -51,6 +51,11 @@
             <artifactId>slf4j-simple</artifactId>
             <version>1.7.30</version>
         </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>jul-to-slf4j</artifactId>
+            <version>1.7.30</version>
+        </dependency>
         <!--        <dependency>-->
         <!--            <groupId>org.apache.logging.log4j</groupId>-->
         <!--            <artifactId>log4j-slf4j-impl</artifactId>-->
@@ -86,6 +91,12 @@
             <artifactId>mockito-core</artifactId>
             <version>3.3.3</version>
             <scope>test</scope>
+        </dependency>
+        <!-- https://mvnrepository.com/artifact/org.imgscalr/imgscalr-lib -->
+        <dependency>
+            <groupId>org.imgscalr</groupId>
+            <artifactId>imgscalr-lib</artifactId>
+            <version>4.2</version>
         </dependency>
     </dependencies>
 
