@@ -2,11 +2,11 @@ package io.stubbs.selenium;
 
 import com.google.common.base.Stopwatch;
 import io.github.bonigarcia.wdm.WebDriverManager;
-import io.stubbs.captcha.FunctionUtils;
+import io.stubbs.captcha.intermittentScreenshotException;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
-import org.imgscalr.Scalr;
+import org.openqa.selenium.PageLoadStrategy;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
@@ -36,7 +36,17 @@ public class SeleniumUtils {
     @SneakyThrows
     static public ChromeDriver getChromeDriver() {
         WebDriverManager.chromedriver().setup();
-        ChromeOptions chromeOptions = new ChromeOptions();
+        ChromeOptions options = new ChromeOptions();
+
+        // https://stackoverflow.com/questions/48450594/selenium-timed-out-receiving-message-from-renderer
+        options.addArguments("enable-automation");
+//        options.addArguments("--headless");
+//        options.addArguments("--window-size=1920,1080");
+        options.addArguments("--no-sandbox");
+        options.addArguments("--disable-extensions");
+        options.addArguments("--dns-prefetch-disable");
+        options.addArguments("--disable-gpu");
+        options.setPageLoadStrategy(PageLoadStrategy.NORMAL);
 
 //        File tempFile = File.createTempFile("touch", "txt", null);
 //        String absolutePath = tempFile.getPath() + "/ocado/touch";
@@ -44,13 +54,13 @@ public class SeleniumUtils {
 
 //        chromeOptions.addArguments("user-data-dir=" + "/private/var/folders/wl/3xwk5p0x22q76b_yrfkpb1pw0000gp/T/ocado");
 
-        ChromeDriver driver = new ChromeDriver(chromeOptions);
+        ChromeDriver driver = new ChromeDriver(options);
 
         return driver;
     }
 
     @SneakyThrows
-    public String shotElement(WebElement ele) {
+    public String shotElement(WebElement ele) throws intermittentScreenshotException {
         log.info("Capturing rendered captcha image...");
         //File screenshot = driver.getScreenshotAs(FILE);
         // String screenshotAs = driver.getScreenshotAs(BASE64);
@@ -86,7 +96,7 @@ public class SeleniumUtils {
         } catch (RasterFormatException e) {
             log.error("Some bizarre image manipulation mistake...? Saving original to disk for manual inspection.");
             saveImageToDisk("original-source-capture", fullImg, "png");
-            throw e;
+            throw new intermittentScreenshotException(e);
         }
 
         int scaledWidth = eleScreenshot.getWidth() / scale;
