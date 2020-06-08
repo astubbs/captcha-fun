@@ -26,6 +26,6 @@ public class DriverTest {
 
     @After
     public void teardown() {
-        driver.close();
+//        driver.close();
     }
 }

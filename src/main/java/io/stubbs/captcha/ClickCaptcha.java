@@ -28,8 +28,6 @@ import static java.time.Duration.ofSeconds;
 @RequiredArgsConstructor
 public class ClickCaptcha {
 
-    Duration MAX_SPEED = ofSeconds(1);
-    public static final String G_RECAPTCHA_RESPONSE_ID = "g-recaptcha-response";
     final private ChromeDriver driver;
     final private SeleniumUtils sutils;
 
@@ -44,13 +42,17 @@ public class ClickCaptcha {
                 break;
 
             // solve
-            solveLoop(captchaType);
+            try {
+                solveLoop(captchaType);
+            } catch (CaptchaException e) {
+                log.info(e.getMessage());
+                break;
+            }
         }
-
         log.info("Captcha no longer detected... Took: {}", started.stop());
     }
 
-    private void solveLoop(CaptchaType captchaType) {
+    private void solveLoop(CaptchaType captchaType) throws CaptchaException {
         while (true) {
             CaptchaType newCaptchaTypeChange = findIfCaptchaIsPresentAndType(); // type has changed?
             if (captchaType != newCaptchaTypeChange) {
@@ -58,7 +60,14 @@ public class ClickCaptcha {
                 captchaType = newCaptchaTypeChange;
             }
             // have more tiles appeared? or has the captcha changed?
-            CapchaData data = getCaptchaData(captchaType);
+            CapchaData data;
+            try{
+                data = getCaptchaData(captchaType);
+            } catch (intermittentScreenshotException e){
+                e.printStackTrace();
+                log.error("Error capturing data, abort and retry..?", e.toString());
+                continue;
+            }
             boolean mock = false;
             Optional<List<TwoCaptchaService.ResponseData.Point>> coordinates = mock ?
                     Optional.of(List.of()) :
@@ -108,7 +117,7 @@ public class ClickCaptcha {
 
     @SneakyThrows
     private CaptchaType findIfCaptchaIsPresentAndType() {
-        Thread.sleep(500); //pause
+        Thread.sleep(1000); //pause
         String currentUrl = driver.getCurrentUrl();
         if (!currentUrl.contains("accounts.ocado.com/auth-service/sso/login"))
             return NONE;
@@ -131,7 +140,7 @@ public class ClickCaptcha {
         }
     }
 
-    private void clickVerify() {
+    private void clickVerify() throws CaptchaException {
         randomPause("Clicking verify after pause...");
         WebDriver webDriver = switchToCaptchaIFrame();
         Optional<WebElement> first = webDriver.findElements(By.className("rc-button-default")).stream().findFirst();
@@ -176,11 +185,12 @@ public class ClickCaptcha {
         }
     }
 
-    @SneakyThrows
-    private CapchaData getCaptchaData(CaptchaType captchaType) {
+
+    private CapchaData getCaptchaData(CaptchaType captchaType) throws intermittentScreenshotException {
         WebElement iframe = getCaptchaIFrame();
 
-        String encodedImageData = time(() -> sutils.shotElement(iframe));
+        //String encodedImageData = time("Screenshot element", () -> sutils.shotElement(iframe));
+        String encodedImageData = sutils.shotElement(iframe);
 
         String strippedInstructions = findCaptchaInstructions();
 
